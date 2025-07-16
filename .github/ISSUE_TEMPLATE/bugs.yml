@@ -1,0 +1,109 @@
+name: Bug Report con formato
+description: Por favor, proporcione tantos detalles como sea posible para transmitir el historial de su problema.
+labels: [ "bug" ]
+type: Bug
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severidad
+      multiple: false
+      options:
+        - Cosmetica
+        - Menor
+        - Mayor
+        - Crítica
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridad
+      multiple: false
+      options:
+        - Baja
+        - Media
+        - Alta
+        - Inmediata
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+    validations:
+      required: true
+
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: Pre-condiciones
+      description: Lista de pre-condiciones
+    validations:
+      required: true
+
+  - type: input
+    id: model-phone
+    attributes:
+      label: Modelo y marca de teléfono
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ossystems
+    attributes:
+      label: Sistema operativo en el cuál encuentras el problema
+      multiple: true
+      options:
+        - Ios
+        - Android
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos
+      description: Por favor, complete los pasos en la tabla de abajo
+      value: |
+        | Paso | Descripción | Input Data |
+        |------|-------------|------------|
+        | 1    |             |            |
+        | 2    |             |            |
+        | 3    |             |            |
+        | 4    |             |            |
+        | 5    |             |            |
+    validations:
+      required: true
+
+  - type: input
+    id: expected-result
+    attributes:
+      label: Resultado esperado
+    validations:
+      required: true
+
+  - type: input
+    id: actual-result
+    attributes:
+      label: Resultado actual
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidencias
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "# Información adicional"
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Información adicional

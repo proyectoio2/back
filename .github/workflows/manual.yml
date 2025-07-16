@@ -1,0 +1,37 @@
+name: Add Issues to Projects
+permissions:
+  repository-projects: write
+on:
+  issues:
+    types: [ labeled ]
+
+jobs:
+  add-bug-to-project:
+    name: Add bug to project
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'bug'
+    steps:
+      - uses: actions/add-to-project@v0.4.0
+        with:
+          project-url: https://github.com/orgs/Progra-movil-umss/projects/4
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+
+  add-issue-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'hu'
+    steps:
+      - uses: actions/add-to-project@v0.4.0
+        with:
+          project-url: https://github.com/orgs/Progra-movil-umss/projects/6
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+
+  add-task-to-project:
+    name: Add task to project
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'tarea'
+    steps:
+      - uses: actions/add-to-project@v0.4.0
+        with:
+          project-url: https://github.com/orgs/Progra-movil-umss/projects/6
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}

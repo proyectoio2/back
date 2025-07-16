@@ -1,0 +1,12 @@
+name: Task
+description: Ingrese la tarea y luego agregue la relación con la hu correspondiente.
+labels: [ "tarea" ]
+type: Task
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+      description: Proporcione una descripción detallada de la tarea.
+    validations:
+      required: false
