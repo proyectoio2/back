@@ -9,7 +9,9 @@ from src.validators.password import validate_password
 
 class UserBase(BaseModel):
     email: EmailStr
-    username: constr(min_length=3, max_length=50)
+    full_name: constr(min_length=3, max_length=100)
+    phone_number: constr(min_length=7, max_length=20)
+    address: constr(min_length=5, max_length=255)
 
 
 class UserCreate(UserBase):
@@ -26,7 +28,9 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
-    username: Optional[constr(min_length=3, max_length=50)] = None
+    full_name: Optional[constr(min_length=3, max_length=100)] = None
+    phone_number: Optional[constr(min_length=7, max_length=20)] = None
+    address: Optional[constr(min_length=5, max_length=255)] = None
     current_password: Optional[constr(min_length=8)] = None
     new_password: Optional[constr(min_length=8)] = None
 
@@ -61,7 +65,7 @@ class TokenData(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username_or_email: str
+    email: EmailStr
     password: str
 
 

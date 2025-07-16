@@ -36,15 +36,6 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
     PASSWORD_HISTORY_SIZE: int = 5
     
-    # PlantNet API
-    PLANTNET_API_URL: str
-    PLANTNET_API_KEY: str
-    PLANTNET_MAX_IMAGES: int
-    PLANTNET_MAX_IMAGE_SIZE: int
-    PLANTNET_INCLUDE_RELATED: bool
-    PLANTNET_LANGUAGE: str
-    PLANTNET_NB_RESULTS: int
-    
     DO_SPACES_KEY: str
     DO_SPACES_SECRET: str
     DO_SPACES_ENDPOINT: str

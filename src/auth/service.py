@@ -66,18 +66,11 @@ async def create_password_reset_token(data: dict | models.User) -> str:
     return encoded_jwt
 
 
-def authenticate_user(db: Session, username_or_email: str, password: str) -> models.User:
+def authenticate_user(db: Session, email: str, password: str) -> models.User:
     """
-    Autenticar usuario y manejar intentos de inicio de sesión.
+    Autenticar usuario solo por email.
     """
-    # Buscar usuario por email o username
-    user = db.query(models.User).filter(
-        or_(
-            models.User.email == username_or_email,
-            models.User.username == username_or_email
-        )
-    ).first()
-
+    user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -142,26 +135,27 @@ async def create_user(db: Session, user: schemas.UserCreate) -> models.User:
             status_code=400,
             detail="El formato del email no es válido"
         )
-
-    # Validar longitud del username
-    if len(user.username) < 3:
+    # Validar campos obligatorios
+    if len(user.full_name) < 3:
         raise HTTPException(
             status_code=400,
-            detail="El nombre de usuario debe tener al menos 3 caracteres"
+            detail="El nombre completo debe tener al menos 3 caracteres"
         )
-    if len(user.username) > 50:
+    if len(user.phone_number) < 7:
         raise HTTPException(
             status_code=400,
-            detail="El nombre de usuario no puede tener más de 50 caracteres"
+            detail="El número de celular debe tener al menos 7 dígitos"
         )
-
-    # Validar contraseña
+    if len(user.address) < 5:
+        raise HTTPException(
+            status_code=400,
+            detail="La dirección debe tener al menos 5 caracteres"
+        )
     if len(user.password) < 8:
         raise HTTPException(
             status_code=400,
             detail="La contraseña debe tener al menos 8 caracteres"
         )
-
     # Verificar si el email ya existe
     existing_email = db.query(models.User).filter(models.User.email == user.email).first()
     if existing_email:
@@ -169,49 +163,42 @@ async def create_user(db: Session, user: schemas.UserCreate) -> models.User:
             status_code=409,
             detail="El email ya está registrado por otro usuario"
         )
-
-    # Verificar si el username ya existe
-    existing_username = db.query(models.User).filter(models.User.username == user.username).first()
-    if existing_username:
+    # Verificar si el número de celular ya existe
+    existing_phone = db.query(models.User).filter(models.User.phone_number == user.phone_number).first()
+    if existing_phone:
         raise HTTPException(
             status_code=409,
-            detail="El nombre de usuario ya está en uso"
+            detail="El número de celular ya está registrado por otro usuario"
         )
-
     try:
-        # Crear el usuario
         hashed_password = get_password_hash(user.password)
         db_user = models.User(
             email=user.email,
-            username=user.username,
+            full_name=user.full_name,
+            phone_number=user.phone_number,
+            address=user.address,
             hashed_password=hashed_password
         )
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-
-        # Registrar la contraseña en el historial
         password_history = models.PasswordHistory(
             user_id=db_user.id,
             hashed_password=hashed_password
         )
         db.add(password_history)
         db.commit()
-
-        # Enviar email de bienvenida
         try:
-            await email_service.send_welcome_email(db_user.email, db_user.username)
+            await email_service.send_welcome_email(db_user.email, db_user.full_name)
         except Exception as email_error:
-            # No fallamos si el email no se puede enviar, solo lo registramos
             print(f"Error al enviar email de bienvenida: {str(email_error)}")
-
         return db_user
     except SQLAlchemyError as e:
         db.rollback()
         if "duplicate key value violates unique constraint" in str(e):
             raise HTTPException(
                 status_code=409,
-                detail="Ya existe un usuario con ese email o nombre de usuario"
+                detail="Ya existe un usuario con ese email o número de celular"
             )
         raise HTTPException(
             status_code=500,
@@ -225,50 +212,37 @@ def update_user(
         user_update: schemas.UserUpdate,
         current_password: Optional[str] = None
 ) -> models.User:
-    # Obtener usuario
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=404,
             detail="Usuario no encontrado"
         )
-
-    # Actualizar datos básicos
     update_data = user_update.model_dump(exclude_unset=True)
-    
-    # Si hay cambio de contraseña, validar y actualizar
     if "new_password" in update_data:
         if not current_password:
             raise HTTPException(
                 status_code=400,
                 detail="Se requiere la contraseña actual para cambiarla"
             )
-            
         if not verify_password(current_password, user.hashed_password):
             raise HTTPException(
                 status_code=400,
                 detail="La contraseña actual es incorrecta"
             )
-            
-        # Verificar que la nueva contraseña no esté en el historial
         hashed_new_password = get_password_hash(update_data["new_password"])
         recent_passwords = db.query(models.PasswordHistory).filter(
             models.PasswordHistory.user_id == user_id
         ).order_by(models.PasswordHistory.created_at.desc()).limit(3).all()
-
         for old_password in recent_passwords:
             if verify_password(update_data["new_password"], old_password.hashed_password):
                 raise HTTPException(
                     status_code=400,
                     detail="La nueva contraseña no puede ser igual a una de las últimas 3 contraseñas utilizadas"
                 )
-
-        # Actualizar contraseña
         user.hashed_password = hashed_new_password
         db.add(models.PasswordHistory(user_id=user_id, hashed_password=hashed_new_password))
         del update_data["new_password"]
-
-    # Validar email único si se está actualizando
     if "email" in update_data and update_data["email"] != user.email:
         existing_user = db.query(models.User).filter(models.User.email == update_data["email"]).first()
         if existing_user:
@@ -276,20 +250,15 @@ def update_user(
                 status_code=400,
                 detail="El email ya está registrado por otro usuario"
             )
-
-    # Validar username único si se está actualizando
-    if "username" in update_data and update_data["username"] != user.username:
-        existing_user = db.query(models.User).filter(models.User.username == update_data["username"]).first()
+    if "phone_number" in update_data and update_data["phone_number"] != user.phone_number:
+        existing_user = db.query(models.User).filter(models.User.phone_number == update_data["phone_number"]).first()
         if existing_user:
             raise HTTPException(
                 status_code=400,
-                detail="El nombre de usuario ya está en uso"
+                detail="El número de celular ya está registrado por otro usuario"
             )
-
-    # Actualizar resto de campos
     for key, value in update_data.items():
         setattr(user, key, value)
-
     try:
         db.commit()
         db.refresh(user)

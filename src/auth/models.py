@@ -15,7 +15,9 @@ class User(Base):
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
-    username = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=False)
+    phone_number = Column(String, unique=True, index=True, nullable=False)
+    address = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)

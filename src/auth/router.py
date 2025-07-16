@@ -56,20 +56,17 @@ def login_for_access_token(
         login_data: schemas.LoginRequest,
         db: Session = Depends(get_db)
 ) -> dict:
-    # Validar campos requeridos
-    if not login_data.username_or_email or not login_data.password:
+    if not login_data.email or not login_data.password:
         raise HTTPException(
             status_code=400,
-            detail="El email/username y la contraseña son requeridos"
+            detail="El email y la contraseña son requeridos"
         )
-    # Autenticar usuario
-    user = service.authenticate_user(db, login_data.username_or_email, login_data.password)
+    user = service.authenticate_user(db, login_data.email, login_data.password)
     if not user:
         raise HTTPException(
             status_code=400,
             detail="Credenciales inválidas"
         )
-    # Generar tokens
     access_token = service.create_access_token(data={"sub": str(user.id)})
     refresh_token = service.create_refresh_token(data={"sub": str(user.id)})
     return {
@@ -82,7 +79,9 @@ def login_for_access_token(
             "user": {
                 "id": str(user.id),
                 "email": user.email,
-                "username": user.username
+                "full_name": user.full_name,
+                "phone_number": user.phone_number,
+                "address": user.address
             }
         }
     }
@@ -339,7 +338,9 @@ async def get_me(current_user: models.User = Depends(service.get_current_user)) 
         "data": {
             "id": str(current_user.id),
             "email": current_user.email,
-            "username": current_user.username,
+            "full_name": current_user.full_name,
+            "phone_number": current_user.phone_number,
+            "address": current_user.address,
             "is_active": current_user.is_active,
             "is_superuser": current_user.is_superuser,
             "created_at": current_user.created_at,

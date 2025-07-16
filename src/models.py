@@ -10,6 +10,3 @@ class TimestampMixin:
 
 # Import all models to ensure they are registered with SQLAlchemy
 from src.auth.models import User, PasswordHistory, UsedToken
-from src.gardens.models import Garden
-from src.plants.models import Plant
-from src.notes.models import PlantNote

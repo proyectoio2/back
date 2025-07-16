@@ -8,10 +8,6 @@ from fastapi.responses import JSONResponse
 import os
 
 from src.auth.router import router as auth_router
-from src.plant_identification.router import router as plant_router
-from src.gardens.router import router as garden_router
-from src.notes.router import router as notes_router
-from src.plants.router  import router as plantas
 from src.config import get_settings
 
 settings = get_settings()
@@ -36,10 +32,6 @@ app.add_middleware(
 app.swagger_ui_init_oauth = {"usePkceWithAuthorizationCodeGrant": True}
 
 app.include_router(auth_router)
-app.include_router(plant_router, prefix="/plants", tags=["plantas"])
-app.include_router(garden_router, prefix="/gardens", tags=["jardines"])
-app.include_router(notes_router, prefix="/plants", tags=["notas de plantas"])
-app.include_router(plantas, prefix="/plants", tags=["plantas"])
 
 # Usar ruta absoluta para los templates
 templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
