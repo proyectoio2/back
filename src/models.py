@@ -10,3 +10,4 @@ class TimestampMixin:
 
 # Import all models to ensure they are registered with SQLAlchemy
 from src.auth.models import User, PasswordHistory, UsedToken
+from src.store.models import Product, Cart, CartProduct, Order, OrderProduct

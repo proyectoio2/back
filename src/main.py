@@ -9,6 +9,7 @@ import os
 
 from src.auth.router import router as auth_router
 from src.config import get_settings
+from src.store.router import router as store_router
 
 settings = get_settings()
 
@@ -32,6 +33,7 @@ app.add_middleware(
 app.swagger_ui_init_oauth = {"usePkceWithAuthorizationCodeGrant": True}
 
 app.include_router(auth_router)
+app.include_router(store_router)
 
 # Usar ruta absoluta para los templates
 templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
