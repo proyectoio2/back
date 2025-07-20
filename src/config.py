@@ -45,10 +45,10 @@ class Settings(BaseSettings):
     DO_SPACES_MAX_IMAGE_SIZE: int = 10 * 1024 * 1024  # 10MB default limit
 
     # Configuración de Twilio
-    TWILIO_ACCOUNT_SID = str
-    TWILIO_AUTH_TOKEN = str
-    TWILIO_WHATSAPP_NUMBER = str
-    YOUR_WHATSAPP_NUMBER = str
+    TWILIO_ACCOUNT_SID: str
+    TWILIO_AUTH_TOKEN: str
+    TWILIO_WHATSAPP_NUMBER: str
+    YOUR_WHATSAPP_NUMBER: str
 
     # Configuración de intentos de inicio de sesión y bloqueo
     MAX_LOGIN_ATTEMPTS: int = 5  # Número máximo de intentos fallidos antes de bloquear
