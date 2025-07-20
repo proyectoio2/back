@@ -81,7 +81,8 @@ def login_for_access_token(
                 "email": user.email,
                 "full_name": user.full_name,
                 "phone_number": user.phone_number,
-                "address": user.address
+                "address": user.address,
+                "is_superuser": user.is_superuser
             }
         }
     }
