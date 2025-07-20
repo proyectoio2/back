@@ -112,7 +112,18 @@ def send_whatsapp_order(order):
     productos = '\n'.join([
         f"- {op.product.title} x{op.quantity} (Bs{op.price})" for op in order.order_products
     ])
-    mensaje = f"🧾 Orden: {order.order_number}\nCliente: {order.full_name}\nTeléfono: {order.phone_number}\nDirección: {order.address}\nProductos:\n{productos}\nTotal a pagar: Bs{order.total}"
+    mensaje = (
+        f"Hola {order.full_name},\n"
+        f"¡Gracias por tu compra en nuestra tienda!\n\n"
+        f"Aquí está el resumen de tu pedido:\n"
+        f"🧾 Orden: {order.order_number}\n"
+        f"Cliente: {order.full_name}\n"
+        f"Teléfono: {order.phone_number}\n"
+        f"Dirección: {order.address}\n"
+        f"Productos:\n{productos}\n"
+        f"Total a pagar: Bs{order.total}\n\n"
+        f"En breve nos pondremos en contacto para coordinar la entrega.\n¡Gracias por confiar en nosotros!"
+    )
     try:
         response = requests.post(
             'https://app.builderbot.cloud/api/v2/f17c42b8-e531-4acf-b667-f8b9076bc022/messages',
