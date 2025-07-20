@@ -86,19 +86,33 @@ class ProductSalesSummary(BaseModel):
     units_sold: int
     total: float
 
+class SaleDetail(BaseModel):
+    order_id: UUID
+    order_number: str
+    customer_name: str
+    customer_email: str
+    customer_phone: str
+    purchase_date: datetime
+    purchase_time: str
+    total_amount: float
+    products: list[dict]  # Lista de productos con cantidad y precio
+
 class DailySalesReport(BaseModel):
     date: str
     total_sales: float
     total_orders: int
     products: list[ProductSalesSummary]
+    sales_details: list[SaleDetail]  # Detalles de cada venta del día
 
 class WeeklySalesReport(BaseModel):
     week: str
     total_sales: float
     total_orders: int
     products: list[ProductSalesSummary]
+    sales_details: list[SaleDetail]  # Detalles de cada venta de la semana
 
 class SalesReportResponse(BaseModel):
     daily_sales: list[DailySalesReport]
     weekly_sales: list[WeeklySalesReport]
-    product_summary: list[ProductSalesSummary] 
+    product_summary: list[ProductSalesSummary]
+    all_sales_details: list[SaleDetail]  # Todas las ventas detalladas 

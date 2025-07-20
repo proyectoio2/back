@@ -89,31 +89,66 @@ def checkout_cart(db: Session, user: User):
 def get_sales_report(db: Session, user: User):
     if not user.is_superuser:
         raise HTTPException(status_code=403, detail="No autorizado")
+    
     # Daily sales (últimos 7 días)
     today = datetime.utcnow().date()
     daily_sales = []
+    all_sales_details = []
+    
     for i in range(7):
         day = today - timedelta(days=i)
         orders = db.query(models.Order).filter(func.date(models.Order.created_at) == day).all()
         total_sales = sum(order.total for order in orders)
         total_orders = len(orders)
+        
         # Productos vendidos ese día
         product_counter = {}
+        sales_details = []
+        
         for order in orders:
+            # Detalles de productos en esta orden
+            order_products = []
             for op in order.order_products:
+                order_products.append({
+                    "product_id": str(op.product_id),
+                    "title": op.product.title,
+                    "quantity": op.quantity,
+                    "price": op.price,
+                    "subtotal": op.price * op.quantity
+                })
+                
+                # Contador para resumen de productos
                 pid = op.product_id
                 if pid not in product_counter:
                     product_counter[pid] = {"product_id": pid, "title": op.product.title, "units_sold": 0, "total": 0.0}
                 product_counter[pid]["units_sold"] += op.quantity
                 product_counter[pid]["total"] += op.price * op.quantity
+            
+            # Crear detalle de venta
+            sale_detail = schemas.SaleDetail(
+                order_id=order.id,
+                order_number=order.order_number,
+                customer_name=order.full_name,
+                customer_email=order.user.email,
+                customer_phone=order.phone_number,
+                purchase_date=order.created_at.date(),
+                purchase_time=order.created_at.strftime("%H:%M:%S"),
+                total_amount=order.total,
+                products=order_products
+            )
+            sales_details.append(sale_detail)
+            all_sales_details.append(sale_detail)
+        
         products = sorted([schemas.ProductSalesSummary(**v) for v in product_counter.values()], key=lambda x: x.units_sold, reverse=True)
         daily_sales.append(schemas.DailySalesReport(
             date=str(day),
             total_sales=total_sales,
             total_orders=total_orders,
-            products=products
+            products=products,
+            sales_details=sales_details
         ))
     daily_sales = sorted(daily_sales, key=lambda x: x.date, reverse=True)
+    
     # Weekly sales (últimas 4 semanas)
     weekly_sales = []
     for i in range(4):
@@ -125,23 +160,54 @@ def get_sales_report(db: Session, user: User):
         ).all()
         total_sales = sum(order.total for order in orders)
         total_orders = len(orders)
+        
         product_counter = {}
+        sales_details = []
+        
         for order in orders:
+            # Detalles de productos en esta orden
+            order_products = []
             for op in order.order_products:
+                order_products.append({
+                    "product_id": str(op.product_id),
+                    "title": op.product.title,
+                    "quantity": op.quantity,
+                    "price": op.price,
+                    "subtotal": op.price * op.quantity
+                })
+                
+                # Contador para resumen de productos
                 pid = op.product_id
                 if pid not in product_counter:
                     product_counter[pid] = {"product_id": pid, "title": op.product.title, "units_sold": 0, "total": 0.0}
                 product_counter[pid]["units_sold"] += op.quantity
                 product_counter[pid]["total"] += op.price * op.quantity
+            
+            # Crear detalle de venta
+            sale_detail = schemas.SaleDetail(
+                order_id=order.id,
+                order_number=order.order_number,
+                customer_name=order.full_name,
+                customer_email=order.user.email,
+                customer_phone=order.phone_number,
+                purchase_date=order.created_at.date(),
+                purchase_time=order.created_at.strftime("%H:%M:%S"),
+                total_amount=order.total,
+                products=order_products
+            )
+            sales_details.append(sale_detail)
+        
         products = sorted([schemas.ProductSalesSummary(**v) for v in product_counter.values()], key=lambda x: x.units_sold, reverse=True)
         week_label = f"{week_start.isocalendar()[0]}-W{week_start.isocalendar()[1]}"
         weekly_sales.append(schemas.WeeklySalesReport(
             week=week_label,
             total_sales=total_sales,
             total_orders=total_orders,
-            products=products
+            products=products,
+            sales_details=sales_details
         ))
     weekly_sales = sorted(weekly_sales, key=lambda x: x.week, reverse=True)
+    
     # Product summary (total)
     all_orders = db.query(models.Order).all()
     product_counter = {}
@@ -153,8 +219,13 @@ def get_sales_report(db: Session, user: User):
             product_counter[pid]["units_sold"] += op.quantity
             product_counter[pid]["total"] += op.price * op.quantity
     product_summary = sorted([schemas.ProductSalesSummary(**v) for v in product_counter.values()], key=lambda x: x.units_sold, reverse=True)
+    
+    # Ordenar todos los detalles de ventas por fecha (más reciente primero)
+    all_sales_details = sorted(all_sales_details, key=lambda x: x.purchase_date, reverse=True)
+    
     return schemas.SalesReportResponse(
         daily_sales=daily_sales,
         weekly_sales=weekly_sales,
-        product_summary=product_summary
+        product_summary=product_summary,
+        all_sales_details=all_sales_details
     ) 
