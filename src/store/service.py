@@ -44,6 +44,63 @@ def add_to_cart(db: Session, user: User, product_id: UUID, quantity: int):
     db.refresh(cart)
     return cart
 
+def update_cart_item(db: Session, user: User, product_id: UUID, quantity: int):
+    cart = get_cart(db, user.id)
+    if not cart:
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+    
+    product = get_product(db, product_id)
+    if not product or not product.is_active:
+        raise HTTPException(status_code=400, detail="Producto no disponible")
+    
+    cart_product = db.query(models.CartProduct).filter_by(cart_id=cart.id, product_id=product_id).first()
+    
+    if quantity == 0:
+        # Eliminar producto del carrito
+        if cart_product:
+            db.delete(cart_product)
+            db.commit()
+        return get_cart(db, user.id)
+    
+    if quantity > product.stock:
+        raise HTTPException(status_code=400, detail="Stock insuficiente para la cantidad solicitada")
+    
+    if cart_product:
+        # Actualizar cantidad existente
+        cart_product.quantity = quantity
+    else:
+        # Agregar nuevo producto al carrito
+        cart_product = models.CartProduct(cart_id=cart.id, product_id=product_id, quantity=quantity)
+        db.add(cart_product)
+    
+    db.commit()
+    db.refresh(cart)
+    return cart
+
+def remove_from_cart(db: Session, user: User, product_id: UUID):
+    cart = get_cart(db, user.id)
+    if not cart:
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+    
+    cart_product = db.query(models.CartProduct).filter_by(cart_id=cart.id, product_id=product_id).first()
+    if not cart_product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado en el carrito")
+    
+    db.delete(cart_product)
+    db.commit()
+    db.refresh(cart)
+    return cart
+
+def clear_cart(db: Session, user: User):
+    cart = get_cart(db, user.id)
+    if not cart:
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+    
+    db.query(models.CartProduct).filter_by(cart_id=cart.id).delete()
+    db.commit()
+    db.refresh(cart)
+    return cart
+
 def checkout_cart(db: Session, user: User):
     cart = get_cart(db, user.id)
     if not cart or not cart.cart_products:

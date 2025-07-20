@@ -54,6 +54,18 @@ def get_cart(current_user=Depends(get_current_user), db: Session = Depends(get_d
 def add_to_cart(request: schemas.AddToCartRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return service.add_to_cart(db, current_user, request.product_id, request.quantity)
 
+@router.put("/cart/update", response_model=schemas.Cart)
+def update_cart_item(request: schemas.UpdateCartItemRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return service.update_cart_item(db, current_user, request.product_id, request.quantity)
+
+@router.delete("/cart/remove", response_model=schemas.Cart)
+def remove_from_cart(request: schemas.RemoveFromCartRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return service.remove_from_cart(db, current_user, request.product_id)
+
+@router.delete("/cart/clear", response_model=schemas.Cart)
+def clear_cart(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return service.clear_cart(db, current_user)
+
 @router.post("/cart/checkout", response_model=schemas.Order)
 def checkout(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return service.checkout_cart(db, current_user)

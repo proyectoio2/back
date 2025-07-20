@@ -44,6 +44,13 @@ class AddToCartRequest(BaseModel):
     product_id: UUID
     quantity: int = Field(gt=0)
 
+class UpdateCartItemRequest(BaseModel):
+    product_id: UUID
+    quantity: int = Field(ge=0)  # ge=0 permite eliminar (quantity=0)
+
+class RemoveFromCartRequest(BaseModel):
+    product_id: UUID
+
 class OrderProduct(BaseModel):
     id: UUID
     product: Product
