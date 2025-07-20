@@ -9,24 +9,16 @@ from src.database import get_db
 # Imports adicionales para WhatsApp
 from pydantic import BaseModel
 from twilio.rest import Client
+from src.config import get_settings
 
+settings = get_settings()
 import os
 from datetime import datetime
 import logging
 
-from src.config import get_settings
-settings = get_settings()
-
-
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Configuración de Twilio
-TWILIO_ACCOUNT_SID = settings.TWILIO_ACCOUNT_SID
-TWILIO_AUTH_TOKEN = settings.TWILIO_AUTH_TOKEN
-TWILIO_WHATSAPP_NUMBER = settings.TWILIO_WHATSAPP_NUMBER
-VENDEDOR_WHATSAPP_NUMBER = settings.VENDEDOR_WHATSAPP_NUMBER
 
 # Inicializar cliente de Twilio
 twilio_client = Client(get_settings().TWILIO_ACCOUNT_SID, get_settings().TWILIO_AUTH_TOKEN)
@@ -74,225 +66,123 @@ def remove_from_cart(request: schemas.RemoveFromCartRequest, current_user=Depend
 def clear_cart(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return service.clear_cart(db, current_user)
 
-# @router.post("/cart/checkout", response_model=schemas.Order)
-# def checkout(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-#     return service.checkout_cart(db, current_user)
+@router.post("/cart/checkout", response_model=schemas.Order)
+def checkout(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return service.checkout_cart(db, current_user)
 
 @router.get("/reports/sales", response_model=schemas.SalesReportResponse)
 def sales_report(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     report = service.get_sales_report(db, current_user)
     return report
 
-# REEMPLAZA TU checkout_with_notification CON ESTA VERSION SIMPLIFICADA:
+# ========== NUEVOS SCHEMAS PARA WHATSAPP ==========
+class ProductoPedido(BaseModel):
+    nombre: str
+    cantidad: int
+    precio: float
 
-@router.post("/cart/checkout")
-def checkout_with_notification(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    """
-    VERSION SIMPLIFICADA CON MENSAJE BASICO PARA DEBUGGING
-    """
+class ConfirmarCompraRequest(BaseModel):
+    pedido: str
+    direccion: str
+    productos: List[ProductoPedido]
+    total: float
+    cliente_info: dict = {}
+
+class ConfirmarCompraResponse(BaseModel):
+    success: bool
+    message: str
+    pedido_id: str
+    whatsapp_sent: bool
+
+# ========== FUNCIÓN PARA ENVIAR WHATSAPP ==========
+def enviar_whatsapp_pedido(pedido_data: ConfirmarCompraRequest):
     try:
-        logger.info(f"🚀 Iniciando checkout para usuario: {current_user.id}")
+        # Construir el mensaje
+        productos_texto = ""
+        for producto in pedido_data.productos:
+            productos_texto += f"• {producto.cantidad}x {producto.nombre} — ${producto.precio:,.0f}\n"
         
-        # 1. Verificar carrito ANTES del checkout
-        cart = service.get_cart(db, current_user.id)
-        
-        if not cart or not cart.cart_products:
-            raise HTTPException(status_code=400, detail="El carrito está vacío")
-        
-        logger.info(f"✅ Carrito encontrado con {len(cart.cart_products)} productos")
-        
-        # 2. Construir lista simple de productos
-        productos_lista = []
-        total_calculado = 0
-        
-        for item in cart.cart_products:
-            producto_texto = f"{item.quantity}x {item.product.title} - ${item.product.price}"
-            productos_lista.append(producto_texto)
-            total_calculado += item.product.price * item.quantity
-        
-        logger.info(f"💰 Total calculado: ${total_calculado}")
-        
-        # 3. Procesar checkout
-        logger.info("🛒 Procesando checkout...")
-        order = service.checkout_cart(db, current_user)
-        logger.info(f"✅ Orden creada: {order.order_number}")
-        
-        # 4. MENSAJE MUY SIMPLE SIN EMOJIS NI FORMATO ESPECIAL
-        mensaje_simple = f"""NUEVO PEDIDO
-        
-Pedido: {order.order_number}
-Cliente: {order.full_name}
-Telefono: {order.phone_number}
-Direccion: {order.address}
-Total: ${order.total}
+        mensaje = f"""🛒 *NUEVO PEDIDO RECIBIDO*
 
-Productos:
-{chr(10).join(productos_lista)}
+🧾 *Pedido:* {pedido_data.pedido}
+📅 *Fecha:* {datetime.now().strftime('%d/%m/%Y %H:%M')}
+📍 *Dirección:* {pedido_data.direccion}
 
-Pedido procesado exitosamente."""
-        
-        logger.info("📱 Enviando WhatsApp con mensaje simple...")
-        logger.info(f"📝 Mensaje a enviar: {repr(mensaje_simple)}")
-        
-        # 5. Enviar con manejo de errores detallado
-        try:
-            whatsapp_enviado, resultado_whatsapp = EnviarMensajeAVendedor(mensaje_simple)
-            logger.info(f"✅ Resultado WhatsApp: enviado={whatsapp_enviado}, resultado={resultado_whatsapp}")
-        except Exception as whatsapp_error:
-            logger.error(f"❌ Error específico en WhatsApp: {str(whatsapp_error)}")
-            whatsapp_enviado = False
-            resultado_whatsapp = str(whatsapp_error)
-        
-        # 6. Respuesta
-        response_data = {
-            "id": str(order.id),
-            "order_number": order.order_number,
-            "full_name": order.full_name,
-            "phone_number": order.phone_number,
-            "address": order.address,
-            "total": order.total,
-            "status": order.status,
-            "created_at": order.created_at.isoformat(),
-            "user_id": str(order.user_id),
-            "success": True,
-            "message": "Pedido procesado exitosamente",
-            "whatsapp_sent": whatsapp_enviado,
-            "whatsapp_message_id": resultado_whatsapp if whatsapp_enviado else None,
-            # Datos extra para debugging
-            "debug_info": {
-                "productos_count": len(productos_lista),
-                "total_calculado": total_calculado,
-                "mensaje_length": len(mensaje_simple),
-                "whatsapp_error": None if whatsapp_enviado else resultado_whatsapp
-            }
-        }
-        
-        logger.info(f"🎯 Checkout completado - WhatsApp: {whatsapp_enviado}")
-        return response_data
-        
-    except HTTPException as he:
-        logger.error(f"🚫 HTTPException: {he.detail}")
-        raise he
-    except Exception as e:
-        logger.error(f"💥 Error general en checkout: {str(e)}")
-        logger.error(f"📍 Stack trace: {str(e.__class__.__name__)}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error procesando pedido: {str(e)}")
+📦 *Productos:*
+{productos_texto}
+💰 *Total a pagar:* ${pedido_data.total:,.0f}
 
+¡Nuevo pedido listo para procesar! 🚀"""
 
-# ENDPOINT TEMPORAL PARA DEBUGGING (agregar después de tus otros endpoints):
-
-@router.post("/debug-whatsapp-config")
-def debug_whatsapp_config(current_user=Depends(get_current_user)):
-    """Endpoint para verificar configuración de WhatsApp"""
-    return {
-        "twilio_account_sid_configured": bool(TWILIO_ACCOUNT_SID),
-        "twilio_auth_token_configured": bool(TWILIO_AUTH_TOKEN),
-        "twilio_whatsapp_number": TWILIO_WHATSAPP_NUMBER,
-        "vendedor_whatsapp_number": VENDEDOR_WHATSAPP_NUMBER,
-        "twilio_account_sid_preview": TWILIO_ACCOUNT_SID[:10] + "..." if TWILIO_ACCOUNT_SID else None,
-        "numbers_format_ok": {
-            "twilio_number_starts_with_whatsapp": TWILIO_WHATSAPP_NUMBER.startswith("whatsapp:") if TWILIO_WHATSAPP_NUMBER else False,
-            "vendedor_number_starts_with_whatsapp": VENDEDOR_WHATSAPP_NUMBER.startswith("whatsapp:") if VENDEDOR_WHATSAPP_NUMBER else False
-        }
-    }
-
-# TAMBIEN MEJORA TU FUNCION EnviarMensajeAVendedor:
-
-def EnviarMensajeAVendedor(mensaje: str) -> tuple[bool, str]:
-    """
-    Función mejorada con más logging para debugging
-    """
-    try:
-        logger.info(f"📱 INICIANDO ENVIO WHATSAPP")
-        logger.info(f"📞 Número destino: {VENDEDOR_WHATSAPP_NUMBER}")
-        logger.info(f"📱 Número origen: {TWILIO_WHATSAPP_NUMBER}")
-        logger.info(f"📝 Longitud mensaje: {len(mensaje)} caracteres")
-        logger.info(f"🔧 Account SID: {TWILIO_ACCOUNT_SID[:10]}...")
-        
-        # Validar configuración
-        if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
-            raise Exception("Credenciales de Twilio no configuradas")
-        
-        if not VENDEDOR_WHATSAPP_NUMBER or not TWILIO_WHATSAPP_NUMBER:
-            raise Exception("Números de WhatsApp no configurados")
-        
         # Enviar mensaje
-        logger.info("🚀 Enviando mensaje via Twilio...")
         message = twilio_client.messages.create(
-            from_=TWILIO_WHATSAPP_NUMBER,
+            from_=get_settings().TWILIO_WHATSAPP_NUMBER,
             body=mensaje,
-            to=VENDEDOR_WHATSAPP_NUMBER
+            to=get_settings().YOUR_WHATSAPP_NUMBER
         )
         
-        logger.info(f"✅ WHATSAPP ENVIADO EXITOSAMENTE")
-        logger.info(f"📋 SID: {message.sid}")
-        logger.info(f"📊 Status: {message.status}")
-        logger.info(f"💰 Price: {message.price}")
-        logger.info(f"📅 Date created: {message.date_created}")
-        
+        logger.info(f"WhatsApp enviado exitosamente. SID: {message.sid}")
         return True, message.sid
         
     except Exception as e:
-        logger.error(f"❌ ERROR ENVIANDO WHATSAPP:")
-        logger.error(f"🔥 Tipo de error: {type(e).__name__}")
-        logger.error(f"💬 Mensaje de error: {str(e)}")
-        logger.error(f"📱 Número destino usado: {VENDEDOR_WHATSAPP_NUMBER}")
-        logger.error(f"📱 Número origen usado: {TWILIO_WHATSAPP_NUMBER}")
-        
+        logger.error(f"Error enviando WhatsApp: {str(e)}")
         return False, str(e)
-    
 
-# ========== 🔥 ENDPOINT TEST MEJORADO ==========
+# ========== NUEVOS ENDPOINTS PARA WHATSAPP ==========
+@router.post("/confirm-purchase", response_model=ConfirmarCompraResponse)
+def confirmar_compra(pedido: ConfirmarCompraRequest):
+    try:
+        logger.info(f"Procesando pedido: {pedido.pedido}")
+        
+        # Aquí puedes agregar lógica adicional como:
+        # - Guardar en base de datos usando tu service existente
+        # - Validar stock
+        # - Procesar pago
+        # - etc.
+        
+        # Enviar WhatsApp
+        whatsapp_enviado, whatsapp_resultado = enviar_whatsapp_pedido(pedido)
+        
+        if not whatsapp_enviado:
+            logger.warning(f"WhatsApp no se pudo enviar: {whatsapp_resultado}")
+            # No es error crítico, el pedido sigue procesándose
+        
+        # Respuesta exitosa
+        return ConfirmarCompraResponse(
+            success=True,
+            message="Pedido confirmado exitosamente",
+            pedido_id=pedido.pedido,
+            whatsapp_sent=whatsapp_enviado
+        )
+        
+    except Exception as e:
+        logger.error(f"Error procesando pedido: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error procesando pedido: {str(e)}"
+        )
+
 @router.post("/test-whatsapp")
 def test_whatsapp():
-    """Endpoint para probar WhatsApp usando la función simple"""
+    """Endpoint para probar el envío de WhatsApp"""
     try:
-        # Mensaje de prueba simple
-        mensaje_test = f"""🧪 *MENSAJE DE PRUEBA*
-
-📅 Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}
-📱 Sistema: Funcionando correctamente 20202020
-🔥 Estado: Test exitoso
-
-Este es un mensaje de prueba del sistema de pedidos. Si recibes esto, ¡WhatsApp está funcionando! 🚀"""
+        test_pedido = ConfirmarCompraRequest(
+            pedido="TEST-001",
+            direccion="Dirección de prueba, Cochabamba, Bolivia",
+            productos=[
+                ProductoPedido(nombre="Producto Test", cantidad=1, precio=100.0),
+                ProductoPedido(nombre="Otro Producto", cantidad=2, precio=50.0)
+            ],
+            total=200.0
+        )
         
-        # Usar la función simple
-        enviado, resultado = EnviarMensajeAVendedor(mensaje_test)
-        
-        logger.info(f"Test WhatsApp - Enviado: {enviado}, Resultado: {resultado}")
+        enviado, resultado = enviar_whatsapp_pedido(test_pedido)
         
         return {
             "success": enviado,
-            "message": "WhatsApp de prueba enviado exitosamente" if enviado else "Error enviando WhatsApp de prueba",
+            "message": "WhatsApp de prueba enviado" if enviado else "Error enviando WhatsApp",
             "result": resultado
         }
         
     except Exception as e:
-        logger.error(f"Error en test_whatsapp: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-# ========== STATUS DE WHATSAPP ==========
-@router.get("/whatsapp-status")
-def whatsapp_status():
-    """Verificar configuración de WhatsApp"""
-    try:
-        config_ok = all([
-            TWILIO_ACCOUNT_SID,
-            TWILIO_AUTH_TOKEN, 
-            TWILIO_WHATSAPP_NUMBER,
-            VENDEDOR_WHATSAPP_NUMBER
-        ])
-        
-        return {
-            "config_valid": config_ok,
-            "twilio_number": TWILIO_WHATSAPP_NUMBER,
-            "vendedor_number": VENDEDOR_WHATSAPP_NUMBER,
-            "account_sid": TWILIO_ACCOUNT_SID[:10] + "...",  # Solo mostrar primeros caracteres por seguridad
-            "message": "Configuración de WhatsApp lista" if config_ok else "Configuración incompleta"
-        }
-        
-    except Exception as e:
-        return {
-            "config_valid": False,
-            "error": str(e)
-        }
