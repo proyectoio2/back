@@ -7,6 +7,8 @@ from src.auth.models import User
 import random
 import string
 from sqlalchemy import func
+import requests
+from src.config import get_settings
 
 def get_products(db: Session):
     return db.query(models.Product).filter(models.Product.is_active == True).all()
@@ -101,6 +103,38 @@ def clear_cart(db: Session, user: User):
     db.refresh(cart)
     return cart
 
+def send_whatsapp_order(order):
+    settings = get_settings()
+    # Asegurarse de que el número tenga el prefijo +591
+    numero = order.phone_number
+    if not numero.startswith('+591'):
+        numero = f'+591{numero}'
+    productos = '\n'.join([
+        f"- {op.product.title} x{op.quantity} (Bs{op.price})" for op in order.order_products
+    ])
+    mensaje = f"🧾 Orden: {order.order_number}\nCliente: {order.full_name}\nTeléfono: {order.phone_number}\nDirección: {order.address}\nProductos:\n{productos}\nTotal a pagar: Bs{order.total}"
+    try:
+        response = requests.post(
+            'https://app.builderbot.cloud/api/v2/f17c42b8-e531-4acf-b667-f8b9076bc022/messages',
+            headers={
+                'Content-Type': 'application/json',
+                'x-api-builderbot': settings.BUILDERBOT_API_KEY,
+            },
+            json={
+                'messages': {'content': mensaje},
+                'number': numero,
+                'checkIfExists': False,
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        import logging
+        logging.error(f"Error enviando WhatsApp: {e}")
+        return False
+
+
 def checkout_cart(db: Session, user: User):
     cart = get_cart(db, user.id)
     if not cart or not cart.cart_products:
@@ -141,6 +175,8 @@ def checkout_cart(db: Session, user: User):
         op['product'].stock -= op['quantity']
     db.query(models.CartProduct).filter_by(cart_id=cart.id).delete()
     db.commit()
+    # Enviar WhatsApp
+    send_whatsapp_order(order)
     return order
 
 def get_sales_report(db: Session, user: User):

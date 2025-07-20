@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     # Configuración de contraseñas
     MIN_PASSWORD_LENGTH: int = 8
 
+    # API Key para BuilderBot WhatsApp
+    BUILDERBOT_API_KEY: str
+
     class Config:
         env_file = ".env"
         case_sensitive = True

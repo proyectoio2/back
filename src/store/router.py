@@ -66,9 +66,10 @@ def remove_from_cart(request: schemas.RemoveFromCartRequest, current_user=Depend
 def clear_cart(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return service.clear_cart(db, current_user)
 
-@router.post("/cart/checkout", response_model=schemas.Order)
+@router.post("/cart/checkout")
 def checkout(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    return service.checkout_cart(db, current_user)
+    order = service.checkout_cart(db, current_user)
+    return {"status_code": 200, "message": "Compra realizada y confirmada por WhatsApp"}
 
 @router.get("/reports/sales", response_model=schemas.SalesReportResponse)
 def sales_report(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
