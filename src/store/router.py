@@ -9,9 +9,7 @@ from src.database import get_db
 # Imports adicionales para WhatsApp
 from pydantic import BaseModel
 from twilio.rest import Client
-from src.config import get_settings
 
-settings = get_settings()
 import os
 from datetime import datetime
 import logging
@@ -85,20 +83,15 @@ def sales_report(current_user=Depends(get_current_user), db: Session = Depends(g
     report = service.get_sales_report(db, current_user)
     return report
 
-# ========== 🔥 FUNCIÓN SIMPLE PARA ENVIAR WHATSAPP (COMO PEDISTE) ==========
+# ========== 🔥 FUNCIÓN SIMPLE PARA WHATSAPP (COPIA ESTA) ==========
 def EnviarMensajeAVendedor(mensaje: str) -> tuple[bool, str]:
     """
     Función simple que envía cualquier mensaje al WhatsApp del vendedor
-    Parámetros:
-        mensaje (str): El texto que queremos enviar
-    Retorna:
-        tuple: (éxito: bool, resultado: str)
     """
     try:
         logger.info(f"📱 Enviando mensaje a {VENDEDOR_WHATSAPP_NUMBER}")
-        logger.info(f"📝 Mensaje: {mensaje[:100]}...")  # Log primeros 100 caracteres
         
-        # Enviar mensaje usando Twilio
+        # Enviar mensaje usando Twilio (IGUAL QUE EN EL TEST)
         message = twilio_client.messages.create(
             from_=TWILIO_WHATSAPP_NUMBER,
             body=mensaje,
@@ -110,36 +103,46 @@ def EnviarMensajeAVendedor(mensaje: str) -> tuple[bool, str]:
         
     except Exception as e:
         logger.error(f"❌ Error enviando mensaje WhatsApp: {str(e)}")
-        logger.error(f"🔍 Detalles del error: {repr(e)}")
         return False, str(e)
 
-# ========== 🔥 CHECKOUT PRINCIPAL SIMPLIFICADO ==========
+# ========== 🔥 REEMPLAZA TU checkout_with_notification CON ESTO ==========
 @router.post("/cart/checkout")
 def checkout_with_notification(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    Procesa el checkout y notifica al vendedor por WhatsApp
-    Respuesta simplificada que coincide con lo que espera el frontend
+    VERSIÓN SIMPLIFICADA - USA LA MISMA LÓGICA DEL TEST QUE FUNCIONA
     """
     try:
         logger.info(f"🚀 Iniciando checkout para usuario: {current_user.id}")
         
-        # 1. Procesar el checkout
-        logger.info("📦 Procesando checkout...")
+        # 1. Obtener el carrito ANTES del checkout para construir el mensaje
+        logger.info("📦 Obteniendo carrito antes del checkout...")
+        cart = service.get_cart(db, current_user.id)
+        
+        if not cart or not cart.cart_products:
+            raise HTTPException(status_code=400, detail="El carrito está vacío")
+        
+        # 2. Construir el mensaje ANTES del checkout (cuando los datos están disponibles)
+        logger.info("📝 Construyendo mensaje de WhatsApp...")
+        productos_texto = ""
+        total_calculado = 0
+        
+        for cart_item in cart.cart_products:
+            productos_texto += f"• {cart_item.quantity}x {cart_item.product.title} — ${cart_item.product.price:,.0f}\n"
+            total_calculado += cart_item.product.price * cart_item.quantity
+        
+        # 3. Procesar el checkout (esto vacía el carrito)
+        logger.info("🛒 Procesando checkout...")
         order = service.checkout_cart(db, current_user)
         logger.info(f"✅ Orden creada: {order.order_number}")
         
-        # 2. Crear mensaje simple (similar al test)
-        productos_texto = ""
-        for order_product in order.order_products:
-            productos_texto += f"• {order_product.quantity}x {order_product.product.title} — ${order_product.price:,.0f}\n"
-        
+        # 4. Crear mensaje simple usando los datos que ya teníamos
         mensaje_vendedor = f"""🛒 *NUEVO PEDIDO*
 
 📋 Pedido: {order.order_number}
 👤 Cliente: {order.full_name}
 📞 Teléfono: {order.phone_number}  
 📍 Dirección: {order.address}
-📅 Fecha: {order.created_at.strftime('%d/%m/%Y %H:%M')}
+📅 Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}
 
 📦 *Productos:*
 {productos_texto}
@@ -147,7 +150,7 @@ def checkout_with_notification(current_user=Depends(get_current_user), db: Sessi
 
 ¡Nuevo pedido listo para procesar! 🚀"""
         
-        # 3. Enviar WhatsApp usando la función simple
+        # 5. Enviar WhatsApp usando la función simple (IGUAL QUE EL TEST)
         logger.info("📱 Enviando notificación WhatsApp...")
         whatsapp_enviado, resultado_whatsapp = EnviarMensajeAVendedor(mensaje_vendedor)
         
@@ -156,11 +159,8 @@ def checkout_with_notification(current_user=Depends(get_current_user), db: Sessi
         else:
             logger.error(f"❌ Error enviando WhatsApp: {resultado_whatsapp}")
         
-        # 4. 🔥 RESPUESTA DIRECTA (como espera el frontend)
-        # El frontend busca order.order_number, order.full_name, etc.
-        # Así que devolvemos la orden directamente con campos adicionales
+        # 6. Respuesta para el frontend (estructura que espera tu código React)
         response_data = {
-            # Campos de la orden original
             "id": str(order.id),
             "order_number": order.order_number,
             "full_name": order.full_name,
@@ -170,28 +170,13 @@ def checkout_with_notification(current_user=Depends(get_current_user), db: Sessi
             "status": order.status,
             "created_at": order.created_at.isoformat(),
             "user_id": str(order.user_id),
-            "order_products": [
-                {
-                    "id": str(op.id),
-                    "quantity": op.quantity,
-                    "price": op.price,
-                    "product": {
-                        "id": str(op.product.id),
-                        "title": op.product.title,
-                        "description": op.product.description,
-                        "image_url": op.product.image_url
-                    }
-                }
-                for op in order.order_products
-            ],
-            # Campos adicionales para el frontend
             "success": True,
-            "message": "Pedido procesado exitosamente" + (" - Vendedor notificado por WhatsApp" if whatsapp_enviado else " - Error notificando vendedor"),
+            "message": "Pedido procesado exitosamente",
             "whatsapp_sent": whatsapp_enviado,
             "whatsapp_message_id": resultado_whatsapp if whatsapp_enviado else None
         }
         
-        logger.info("🎯 Devolviendo respuesta con estructura híbrida")
+        logger.info(f"🎯 Respuesta preparada - WhatsApp enviado: {whatsapp_enviado}")
         return response_data
         
     except HTTPException as he:
@@ -199,12 +184,8 @@ def checkout_with_notification(current_user=Depends(get_current_user), db: Sessi
         raise he
     except Exception as e:
         logger.error(f"💥 Error en checkout: {str(e)}")
-        logger.error(f"📊 Stack trace:", exc_info=True)
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error procesando pedido: {str(e)}"
-        )
-
+        raise HTTPException(status_code=500, detail=f"Error procesando pedido: {str(e)}")
+    
 # ========== 🔥 ENDPOINT TEST MEJORADO ==========
 @router.post("/test-whatsapp")
 def test_whatsapp():
