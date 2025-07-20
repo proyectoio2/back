@@ -163,32 +163,38 @@ def checkout_cart(db: Session, user: User):
             'price': product.price
         })
     order_number = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    order = models.Order(
-        order_number=order_number,
-        user_id=user.id,
-        full_name=user.full_name,
-        phone_number=user.phone_number,
-        address=user.address,
-        total=total,
-        status="sold"
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    for op in order_products:
-        db_op = models.OrderProduct(
-            order_id=order.id,
-            product_id=op['product'].id,
-            quantity=op['quantity'],
-            price=op['price']
-        )
-        db.add(db_op)
-        op['product'].stock -= op['quantity']
-    db.query(models.CartProduct).filter_by(cart_id=cart.id).delete()
-    db.commit()
-    # Enviar WhatsApp
-    send_whatsapp_order(order)
-    return order
+    try:
+        with db.begin():
+            order = models.Order(
+                order_number=order_number,
+                user_id=user.id,
+                full_name=user.full_name,
+                phone_number=user.phone_number,
+                address=user.address,
+                total=total,
+                status="sold"
+            )
+            db.add(order)
+            db.flush()
+            for op in order_products:
+                db_op = models.OrderProduct(
+                    order_id=order.id,
+                    product_id=op['product'].id,
+                    quantity=op['quantity'],
+                    price=op['price']
+                )
+                db.add(db_op)
+                op['product'].stock -= op['quantity']
+            db.query(models.CartProduct).filter_by(cart_id=cart.id).delete()
+            db.flush()
+            # Enviar WhatsApp usando el objeto real de la orden
+            db.refresh(order)
+            if not send_whatsapp_order(order):
+                raise Exception("No se pudo enviar el mensaje de confirmación por WhatsApp. La compra no fue registrada.")
+        return order
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 def get_sales_report(db: Session, user: User):
     if not user.is_superuser:
