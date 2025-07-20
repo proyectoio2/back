@@ -74,9 +74,9 @@ def remove_from_cart(request: schemas.RemoveFromCartRequest, current_user=Depend
 def clear_cart(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return service.clear_cart(db, current_user)
 
-@router.post("/cart/checkout", response_model=schemas.Order)
-def checkout(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    return service.checkout_cart(db, current_user)
+# @router.post("/cart/checkout", response_model=schemas.Order)
+# def checkout(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+#     return service.checkout_cart(db, current_user)
 
 @router.get("/reports/sales", response_model=schemas.SalesReportResponse)
 def sales_report(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
@@ -251,7 +251,7 @@ def test_whatsapp():
         mensaje_test = f"""🧪 *MENSAJE DE PRUEBA*
 
 📅 Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}
-📱 Sistema: Funcionando correctamente
+📱 Sistema: Funcionando correctamente 20202020
 🔥 Estado: Test exitoso
 
 Este es un mensaje de prueba del sistema de pedidos. Si recibes esto, ¡WhatsApp está funcionando! 🚀"""
@@ -263,16 +263,13 @@ Este es un mensaje de prueba del sistema de pedidos. Si recibes esto, ¡WhatsApp
         
         return {
             "success": enviado,
-            "message": "WhatsApp de prueba enviado exitosamente1010101010" if enviado else "Error enviando WhatsApp de prueba",
+            "message": "WhatsApp de prueba enviado exitosamente" if enviado else "Error enviando WhatsApp de prueba",
             "result": resultado
         }
         
     except Exception as e:
         logger.error(f"Error en test_whatsapp: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-# ========== 🔥 MANTÉN TU CHECKOUT ORIGINAL (REEMPLAZA EL TUYO) ==========
-# Elimina tu checkout_with_notification actual y usa este:
 
 # ========== STATUS DE WHATSAPP ==========
 @router.get("/whatsapp-status")
