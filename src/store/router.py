@@ -9,6 +9,9 @@ from src.database import get_db
 # Imports adicionales para WhatsApp
 from pydantic import BaseModel
 from twilio.rest import Client
+from src.config import get_settings
+
+settings = get_settings()
 import os
 from datetime import datetime
 import logging
@@ -17,14 +20,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configuración de Twilio
-TWILIO_ACCOUNT_SID = ""
-TWILIO_AUTH_TOKEN = ""
-TWILIO_WHATSAPP_NUMBER = "whatsapp:+"
-YOUR_WHATSAPP_NUMBER = "whatsapp:+"  # Tu número
-
 # Inicializar cliente de Twilio
-twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+twilio_client = Client(get_settings().TWILIO_ACCOUNT_SID, get_settings().TWILIO_AUTH_TOKEN)
 
 router = APIRouter(prefix="/store", tags=["store"])
 
@@ -107,9 +104,9 @@ def enviar_whatsapp_pedido(pedido_data: ConfirmarCompraRequest):
 
         # Enviar mensaje
         message = twilio_client.messages.create(
-            from_=TWILIO_WHATSAPP_NUMBER,
+            from_=get_settings().TWILIO_WHATSAPP_NUMBER,
             body=mensaje,
-            to=YOUR_WHATSAPP_NUMBER
+            to=get_settings().YOUR_WHATSAPP_NUMBER
         )
         
         logger.info(f"WhatsApp enviado exitosamente. SID: {message.sid}")
