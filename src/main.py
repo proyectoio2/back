@@ -16,8 +16,8 @@ settings = get_settings()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 app = FastAPI(
-    title="API de Flora find ",
-    description="API para manejo de autenticación, usuarios e identificación de plantas",
+    title="API de EcoStylo ",
+    description="API para manejo de autenticación, usuarios y compras",
     version="1.0.0",
     swagger_ui_parameters={"defaultModelsExpandDepth": -1},
 )
