@@ -48,13 +48,11 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str
     TWILIO_AUTH_TOKEN: str
     TWILIO_WHATSAPP_NUMBER: str
-    YOUR_WHATSAPP_NUMBER: str
+    VENDEDOR_WHATSAPP_NUMBER: str
 
     # Configuración de intentos de inicio de sesión y bloqueo
     MAX_LOGIN_ATTEMPTS: int = 5  # Número máximo de intentos fallidos antes de bloquear
     ACCOUNT_LOCKOUT_MINUTES: int = 15  # Tiempo de bloqueo en minutos
-
-
 
     # Configuración de contraseñas
     MIN_PASSWORD_LENGTH: int = 8
